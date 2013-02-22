@@ -12,7 +12,11 @@
             "role": "Developer"
         }
     ],
+    "autoload": {
+        "classmap": ["src/"]
+    },
     "require": {
-        "php": ">=5.2.0"
+        "php": ">=5.2.0",
+        "apinstein/jqjobs": "dev-locking-fixes"
     }
 }
