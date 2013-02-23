@@ -1,22 +1,24 @@
 {
-    "name": "apinstein/shell-command",
-    "type": "library",
-    "description": "A generic wrapper for execution of shell command to make it easy to horizontally scale such work.",
-    "keywords": ["job","shell"],
-    "homepage": "http://github.com/apinstein/ShellCommand",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Alan Pinstein",
-            "email": "apinstein@mac.com",
-            "role": "Developer"
-        }
-    ],
-    "autoload": {
-        "classmap": ["src/"]
-    },
-    "require": {
-        "php": ">=5.2.0",
-        "apinstein/jqjobs": "dev-locking-fixes"
+  "name": "apinstein/shell-command",
+  "type": "library",
+  "description": "A generic wrapper for execution of shell command to make it easy to horizontally scale such work.",
+  "keywords": ["job","shell"],
+  "homepage": "http://github.com/apinstein/ShellCommand",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Alan Pinstein",
+      "email": "apinstein@mac.com",
+      "role": "Developer"
     }
+  ],
+  "autoload": {
+    "classmap": ["src/"]
+  },
+  "require": {
+    "php": ">=5.2.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "3.7.*"
+  }
 }
