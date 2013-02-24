@@ -5,9 +5,12 @@ class ShellCommandRunner
   const STATUS_FAILURE = 'failure';
 
   protected $shellCommand       = NULL;
-  protected $notificationRunner = NULL;
   protected $inputTempFiles     = array();
   protected $outputTempFiles    = array();
+
+  protected $notificationRunner = NULL;
+  protected $s3Key = NULL;
+  protected $s3SecretKey = NULL;
 
   // Capture data to be returned as part of each
   // notification. See output scheme capture://
@@ -15,21 +18,27 @@ class ShellCommandRunner
   
   /**
    * @param object ShellCommand
-   * @param callable (void) notificationRunnerF($url, $responseData)
-   *                 response:
+   * @param array Options hash:
+   *              - notificationRunner:
+   *                 callable (void) notificationRunnerF($url, $responseData)
+   *                 responseData:
    *                     status: success | failure
    *                    capture: [captured data hash]
    *                     custom: [custom data hash]
+   *              - s3Key
+   *              - s3SecretKey
    */
-  public function __construct(ShellCommand $shellCommand, $notificationRunner = NULL)
+  public function __construct(ShellCommand $shellCommand, $options = array())
   {
     $this->shellCommand       = $shellCommand;
-    $this->notificationRunner = $notificationRunner;
+    $this->notificationRunner = isset($options['notificationRunner']) ? $options['notificationRunner'] : NULL;
+    $this->s3Key              = isset($options['s3Key']) ? $options['s3Key'] : NULL;
+    $this->s3SecretKey        = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
   }
 
-  public static function create(ShellCommand $sc, $notificationRunner = NULL)
+  public static function create(ShellCommand $sc, $options = array())
   {
-    return new ShellCommandRunner($sc, $notificationRunner);
+    return new ShellCommandRunner($sc, $options);
   }
 
   public function run()
@@ -230,7 +239,7 @@ class ShellCommandRunner
 
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => AWS_KEY, 'secret' => AWS_SECRET_KEY);
+    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
 
     // Gather info
     $urlParts = parse_url($targetUrl);

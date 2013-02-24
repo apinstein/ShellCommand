@@ -18,7 +18,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
       $that->assertEquals('http://foo.com/bar', $notificationUrl);
     };
 
-    $response = ShellCommandRunner::create($sc, $nF)->run();
+    $response = ShellCommandRunner::create($sc, array('notificationRunner' => $nF))->run();
 
     $this->assertEquals(ShellCommandRunner::STATUS_SUCCESS, $response['status']);
     $this->assertNull($response['errorMessage']);
