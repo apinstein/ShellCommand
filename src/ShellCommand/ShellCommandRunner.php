@@ -109,7 +109,7 @@ class ShellCommandRunner
       $actualCommand = $inputOutputReplacerF($command);
       //$actualCommand = escapeshellcmd($actualCommand);
       exec($actualCommand, $output, $returnCode);
-      if ($returnCode !== 0) throw new Exception("When running command '{$actualCommand}', encountered error: '" . var_export($output, true) . "', produced return code '{$returnCode}'.");
+      if ($returnCode !== 0) throw new Exception("Command '{$actualCommand}' exited with status {$returnCode}: " . join("\n", $output));
     }
   }
 
