@@ -23,6 +23,7 @@ class ShellCommandRunner
    *                 callable (void) notificationRunnerF($url, $responseData)
    *                 responseData:
    *                     status: success | failure
+   *                      error: [error message]
    *                    capture: [captured data hash]
    *                     custom: [custom data hash]
    *              - s3Key
