@@ -43,4 +43,25 @@ class ShellCommandTest extends PHPUnit_Framework_TestCase
         $roundTripJSON = $restoredObj->toJSON();
         $this->assertEquals($originalJSON, $roundTripJSON);
     }
+    function testNotificationURLsAreDeDuplicated()
+    {
+      $notifications = array(
+        'http://foo.com/bar',
+        'http://foo.com/baz',
+        'http://foo.com/bum',
+      );
+
+      // normal adds work...
+      $j = ShellCommand::create();
+      foreach ($notifications as $n) {
+        $j->addNotification($n);
+      }
+      $this->assertEquals($notifications, $j->getNotifications(), "Notifications were not added as expected.");
+
+      // duplicate adds should be ignored...
+      foreach ($notifications as $n) {
+        $j->addNotification($n);
+      }
+      $this->assertEquals($notifications, $j->getNotifications(), "Duplicate notifications where not ignored.");
+    }
 }

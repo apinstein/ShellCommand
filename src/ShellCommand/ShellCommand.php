@@ -92,6 +92,7 @@ class ShellCommand
     public function addNotification($url)
     {
         $this->notifications[] = $url;
+        $this->notifications = array_unique($this->notifications);
         return $this;
     }
 
