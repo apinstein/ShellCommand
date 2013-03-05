@@ -96,6 +96,11 @@ class ShellCommand
         return $this;
     }
 
+    public function clearNotifications()
+    {
+      $this->notifications = array();
+    }
+
     public function getNotifications()
     {
       return $this->notifications;
