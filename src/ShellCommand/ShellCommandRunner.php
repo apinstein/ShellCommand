@@ -244,6 +244,9 @@ class ShellCommandRunner
 
     // Gather info
     $urlParts = parse_url($targetUrl);
+    if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
+    if (!isset($urlParts['path'])) throw new Exception("No path could be parsed from {$targetUrl}.");
+
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
     $headers  = array(
