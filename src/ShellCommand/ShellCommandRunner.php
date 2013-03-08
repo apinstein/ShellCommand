@@ -96,7 +96,9 @@ class ShellCommandRunner
     $this->outputTempFiles = array();
     foreach ($this->shellCommand->getOutputs() as $key => $url)
     {
-      $this->outputTempFiles[$key] = tempnam($this->_getTempPath(), 'output-');
+      $ext = pathinfo($url, PATHINFO_EXTENSION);
+      $outputTmpPath = $this->generateTempfile('output-', $ext);
+      $this->outputTempFiles[$key] = $outputTmpPath;
     }
   }
 
@@ -173,11 +175,10 @@ class ShellCommandRunner
   {
     // Generate local (tmp) path to store the downloaded file
     $extension        = pathinfo($url, PATHINFO_EXTENSION);
-    $tmpFile          = tempnam($this->_getTempPath(), 'input-');
-    $inputTmpFilePath = "{$tmpFile}.{$extension}";
+    $inputTmpFilePath = $this->generateTempfile('input-', $extension);
 
     // Download the file
-    $fileHandle = fopen($inputTmpFilePath, 'x');  // x prevents race conditions on the file existing...
+    $fileHandle = fopen($inputTmpFilePath, 'w');
     if ($fileHandle === false) throw new Exception("Unable to create/open {$inputTmpFilePath}.");
 
     $curlHandle = curl_init();
@@ -191,7 +192,6 @@ class ShellCommandRunner
     // Close cURL
     curl_close($curlHandle);
     fclose($fileHandle);
-    unlink($tmpFile); // We don't need the actual tmpfile; we were just using it as a mutex for the filename. We only need the one with the extension. 
 
     // Check the return code
     if ($httpCode >= 300)
@@ -310,5 +310,34 @@ class ShellCommandRunner
       mkdir($tmpDir, 0755, true);
     }
     return $tmpDir;
+  }
+
+  /**
+   * Generates a tempfile with an optional extension; useful for scripts that rely on output filenames for magic (ie ImageMagick format conversion)
+   *
+   * @param string A prefix for the temp file
+   * @param string The extension for the file (with or without the .)
+   * @return string The full filesystem path to the temp file.
+   * @throws object Exception If the temp file cannot be created.
+   */
+  private function generateTempfile($prefix, $ext = NULL)
+  {
+    $tmpFileWithoutExtension = tempnam($this->_getTempPath(), $prefix);  // race-condition safe way to create uniquely named file; used as a mutex for the one w/extension
+
+    if ($ext)
+    {
+      $ext = ltrim($ext, '.');
+      $extensionWithDot = $ext ? ".{$ext}" : NULL;
+      $tmpFilePath = "{$tmpFileWithoutExtension}{$extensionWithDot}";
+      $fileHandle = fopen($tmpFilePath, 'x');  // x prevents race conditions on the file existing...
+      unlink($tmpFileWithoutExtension);       // we don't need the original tempfile, once we get here we've safely got our own tempfile+extension
+      if ($fileHandle === false) throw new Exception("Unable to create tempfile: {$tmpFilePath}");
+      fclose($fileHandle);
+    }
+    else
+    {
+      $tmpFilePath = $tmpFileWithoutExtension;
+    }
+    return $tmpFilePath;
   }
 }

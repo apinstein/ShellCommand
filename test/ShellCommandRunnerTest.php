@@ -26,4 +26,49 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $this->assertEquals("foo", $response['customData']);
     $this->assertTrue($nfRan, "Notification callback didn't run.");
   }
+
+  /**
+   * @dataProvider extensionsDataProvider
+   */
+  function testInputTempFilesPreserveExtensions($expectedExtension)
+  {
+    $extensionWithDot = $expectedExtension ? ".{$expectedExtension}" : NULL;
+    $fileName = "temp{$extensionWithDot}";
+    touch("/tmp/{$fileName}");
+
+    $sc = ShellCommand::create()
+      ->addInput('inputExtension', "file:///tmp/{$fileName}")
+      ->addCommand("echo '%%inputs.inputExtension%%' > %%outputs.outputExtension%%")
+      ->addOutput('outputExtension', "capture://{$fileName}")
+      ;
+    $response = ShellCommandRunner::create($sc)->run();
+    $extensionOnTempFile = pathinfo(trim($response['capture'][$fileName]), PATHINFO_EXTENSION);
+    $this->assertEquals($expectedExtension, $extensionOnTempFile, "Input tempfile extension didn't match input URL.");
+  }
+
+  /**
+   * @dataProvider extensionsDataProvider
+   */
+  function testOutputTempFilesPreserveExtensions($expectedExtension)
+  {
+    $extensionWithDot = $expectedExtension ? ".{$expectedExtension}" : NULL;
+    $fileName = "temp{$extensionWithDot}";
+
+    $sc = ShellCommand::create()
+      ->addCommand("echo '%%outputs.expectExtension%%' > %%outputs.expectExtension%%")
+      ->addOutput('expectExtension', "capture://{$fileName}")
+      ;
+    $response = ShellCommandRunner::create($sc)->run();
+    $extensionOnTempFile = pathinfo(trim($response['capture'][$fileName]), PATHINFO_EXTENSION);
+    $this->assertEquals($expectedExtension, $extensionOnTempFile, "Output tempfile extension didn't match output URL.");
+  }
+
+  function extensionsDataProvider()
+  {
+    return array(
+      array(''),
+      array('jpg'),
+      array('tiff'),
+    );
+  }
 }
