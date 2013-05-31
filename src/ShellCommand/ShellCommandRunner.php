@@ -233,6 +233,10 @@ class ShellCommandRunner
       case 'capture':
         $this->_writeToCaptureData($localFilePath, $targetUrl);
         break;
+      case 'file':
+        $targetFile = parse_url($targetUrl, PHP_URL_PATH);
+        rename($localFilePath, $targetFile);
+        break;
       default:
         throw new Exception("Invalid output scheme '{$scheme}'.");
     }
