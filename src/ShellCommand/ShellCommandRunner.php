@@ -76,6 +76,35 @@ class ShellCommandRunner
   }
 
   /**
+   * A default implementation of a notifier that hits a webhook.
+   * Not robust (no retries or granular failure parsing) but helpful
+   * during development.
+   */
+  public function webhookNotifier($url, $data) {
+    $curlHandle = curl_init();
+    curl_setopt($curlHandle, CURLOPT_URL,            $url);
+    curl_setopt($curlHandle, CURLOPT_POST,           1);
+    curl_setopt($curlHandle, CURLOPT_POSTFIELDS,     json_encode($data));
+    curl_setopt($curlHandle, CURLOPT_HEADER,         0);
+    curl_setopt($curlHandle, CURLOPT_HTTPHEADER,     array('Content-Type: application/json'));
+    curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
+    $output = curl_exec($curlHandle);
+
+    // Get the results
+    $httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
+
+    // Close cURL
+    curl_close($curlHandle);
+
+    // Check the return code
+    if ($httpCode >= 300)
+    {
+      $message = "Error hitting webhook at {$this->_url} due to error: " . var_export($output, true) . " and error code {$httpCode}.";
+      throw new Exception($message);
+    }
+  }
+
+  /**
    * Create inputs hash by appropriate key (e.g. array('inputFile1' => '/tmp/foobar.jpg'))
    */
   private function processInputs()
@@ -269,15 +298,27 @@ class ShellCommandRunner
 
   private function _uploadHTTP($localFilePath, $targetUrl)
   {
-    $cmd = "curl -T " . escapeshellarg($localFilePath) . " " . escapeshellarg($targetUrl);
-    exec($cmd, $output, $retval);
+    $fp = fopen($localFilePath, 'r');
 
-    // Check the return code
-    if ($retval !== 0)
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            $targetUrl);
+    curl_setopt($ch, CURLOPT_UPLOAD,         1);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_INFILE,         $fp);
+    curl_setopt($ch, CURLOPT_INFILESIZE,     filesize($localFilePath));
+    $body       = curl_exec($ch);
+    $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError  = curl_errno($ch);
+    curl_close($ch);
+
+    fclose($fp);
+
+    if ($curlError) {
+      throw new Exception("curl error uploading {$localFilePath} to {$targetUrl}: {$curlError}");
+    }
+    else if ($httpStatus !== 200)
     {
-      $message = "Error uploading file from {$localFilePath} to {$targetUrl} due to error: " . var_export($output, true) . " and error code '{$retval}'.";
-      $e = new Exception($message);
-      throw $e;
+      throw new Exception("Error uploading {$localFilePath} to {$targetUrl}: server responded with {$httpStatus}: {$body}");
     }
   }
 
