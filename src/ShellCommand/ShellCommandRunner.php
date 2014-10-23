@@ -15,7 +15,7 @@ class ShellCommandRunner
   // Capture data to be returned as part of each
   // notification. See output scheme capture://
   protected $capture = array();
-  
+
   /**
    * @param object ShellCommand
    * @param array Options hash:
@@ -200,33 +200,26 @@ class ShellCommandRunner
    * @return string The local temp file path where the downloaded file is stored.
    * @throws Exception If the HTTP code of the download response is non-2XX.
    */
-  private function processInput($url)
+  public function processInput($url)
   {
+    $scheme = strtolower(parse_url($url, PHP_URL_SCHEME));
+
     // Generate local (tmp) path to store the downloaded file
     $extension        = pathinfo($url, PATHINFO_EXTENSION);
     $inputTmpFilePath = $this->generateTempfile('input-', $extension);
 
-    // Download the file
-    $fileHandle = fopen($inputTmpFilePath, 'w');
-    if ($fileHandle === false) throw new Exception("Unable to create/open {$inputTmpFilePath}.");
-
-    $curlHandle = curl_init();
-    curl_setopt($curlHandle, CURLOPT_FILE, $fileHandle);
-    curl_setopt($curlHandle, CURLOPT_URL,  $url);
-    $output = curl_exec($curlHandle);
-
-    // Get the results
-    $httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
-
-    // Close cURL
-    curl_close($curlHandle);
-    fclose($fileHandle);
-
-    // Check the return code
-    if ($httpCode >= 300)
+    switch ($scheme)
     {
-      $message = "Error downloading file from {$url} to {$inputTmpFilePath} due to error: " . var_export($output, true) . " and error code '{$httpCode}'.";
-      throw new Exception($message);
+      case 'http':
+        $this->_downloadHTTP($url, $inputTmpFilePath);
+        break;
+      case '':
+      case 'file':
+        $targetFile = parse_url($url, PHP_URL_PATH);
+        $return = copy($targetFile, $inputTmpFilePath);
+        break;
+      default:
+        throw new Exception("Invalid input scheme '{$scheme}'.");
     }
 
     return $inputTmpFilePath;
@@ -294,6 +287,40 @@ class ShellCommandRunner
     {
       throw new Exception("Upload to S3 {$targetUrl} failed: " . print_r($response->body, true));
     }
+  }
+
+  private function _downloadHTTP($sourceUrl, $localFilePath)
+  {
+    // Download the file
+    $fileHandle = fopen($localFilePath, 'w');
+    if ($fileHandle === false) throw new Exception("Unable to create/open {$localFilePath}.");
+
+    $curlHandle = curl_init();
+    curl_setopt($curlHandle, CURLOPT_FILE, $fileHandle);
+    curl_setopt($curlHandle, CURLOPT_URL,  $sourceUrl);
+    $output = curl_exec($curlHandle);
+
+    if ($output === false)
+    {
+      curl_close($curlHandle);
+      fclose($fileHandle);
+      throw new Exception("Curl exec fail {$sourceUrl}");
+    }
+
+    // Get the results
+    $httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
+
+    // Close cURL
+    curl_close($curlHandle);
+    fclose($fileHandle);
+
+    // Check the return code
+    if ($httpCode >= 300)
+    {
+      $message = "Error downloading file from {$sourceUrl} to {$localFilePath} due to error: " . var_export($output, true) . " and error code '{$httpCode}'.";
+      throw new Exception($message);
+    }
+
   }
 
   private function _uploadHTTP($localFilePath, $targetUrl)
@@ -365,7 +392,7 @@ class ShellCommandRunner
    * @return string The full filesystem path to the temp file.
    * @throws object Exception If the temp file cannot be created.
    */
-  private function generateTempfile($prefix, $ext = NULL)
+  public function generateTempfile($prefix, $ext = NULL)
   {
     $tmpFileWithoutExtension = tempnam($this->_getTempPath(), $prefix);  // race-condition safe way to create uniquely named file; used as a mutex for the one w/extension
 
