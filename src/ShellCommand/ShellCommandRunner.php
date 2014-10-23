@@ -300,6 +300,13 @@ class ShellCommandRunner
     curl_setopt($curlHandle, CURLOPT_URL,  $sourceUrl);
     $output = curl_exec($curlHandle);
 
+    if ($output === false)
+    {
+      curl_close($curlHandle);
+      fclose($fileHandle);
+      throw new Exception("Curl exec fail {$sourceUrl}");
+    }
+
     // Get the results
     $httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
 

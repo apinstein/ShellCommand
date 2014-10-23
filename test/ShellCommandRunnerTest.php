@@ -34,6 +34,20 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $this->assertTrue(file_exists($tempFile));
   }
 
+  function testHttpInputThrowsExcepton()
+  {
+    $scr = ShellCommandRunner::create(ShellCommand::create());
+    $exceptionCaught = false;
+    try {
+      $tempFile = $scr->processInput("http://www.asdfasdflajsd;flkajsdlkjfs.com");
+    }
+    catch (Exception $e)
+    {
+      $exceptionCaught = true;
+    }
+    $this->assertTrue($exceptionCaught);
+  }
+
   function testFileInputSceme()
   {
     $scr = ShellCommandRunner::create(ShellCommand::create());
