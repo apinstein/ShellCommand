@@ -21,10 +21,28 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $response = ShellCommandRunner::create($sc, array('notificationRunner' => $nF))->run();
 
     $this->assertEquals(ShellCommandRunner::STATUS_SUCCESS, $response['status']);
-    $this->assertNull($response['errorMessage']);
+    $this->assertNull($response['error']);
     $this->assertEquals("HI\n", $response['capture']['echo']);
     $this->assertEquals("foo", $response['customData']);
     $this->assertTrue($nfRan, "Notification callback didn't run.");
+  }
+
+  function testHttpInputSceme()
+  {
+    $scr = ShellCommandRunner::create(ShellCommand::create());
+    $tempFile = $scr->processInput("http://www.cnn.com");
+    $this->assertTrue(file_exists($tempFile));
+  }
+
+  function testFileInputSceme()
+  {
+    $scr = ShellCommandRunner::create(ShellCommand::create());
+    $sourceFile = $scr->generateTempfile('input-');
+    $tempFile = $scr->processInput($sourceFile);
+    $this->assertTrue(file_exists($tempFile));
+    $sourceFile = "file://" . $scr->generateTempfile('input-');
+    $tempFile = $scr->processInput($sourceFile);
+    $this->assertTrue(file_exists($tempFile));
   }
 
   /**

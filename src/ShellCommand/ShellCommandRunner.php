@@ -200,7 +200,7 @@ class ShellCommandRunner
    * @return string The local temp file path where the downloaded file is stored.
    * @throws Exception If the HTTP code of the download response is non-2XX.
    */
-  private function processInput($url)
+  public function processInput($url)
   {
     $scheme = strtolower(parse_url($url, PHP_URL_SCHEME));
 
@@ -220,6 +220,7 @@ class ShellCommandRunner
         break;
       default:
         throw new Exception("Invalid input scheme '{$scheme}'.");
+    }
 
     return $inputTmpFilePath;
   }
@@ -384,7 +385,7 @@ class ShellCommandRunner
    * @return string The full filesystem path to the temp file.
    * @throws object Exception If the temp file cannot be created.
    */
-  private function generateTempfile($prefix, $ext = NULL)
+  public function generateTempfile($prefix, $ext = NULL)
   {
     $tmpFileWithoutExtension = tempnam($this->_getTempPath(), $prefix);  // race-condition safe way to create uniquely named file; used as a mutex for the one w/extension
 
