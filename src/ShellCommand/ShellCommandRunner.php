@@ -257,12 +257,24 @@ class ShellCommandRunner
         $this->_writeToCaptureData($localFilePath, $targetUrl);
         break;
       case 'file':
-        $targetFile = parse_url($targetUrl, PHP_URL_PATH);
-        rename($localFilePath, $targetFile);
+        $this->_writeLocally($localFilePath, $targetUrl);
         break;
       default:
         throw new Exception("Invalid output scheme '{$scheme}'.");
     }
+  }
+
+  private function _writeLocally($localFilePath, $targetFilePath)
+  {
+      $targetFile = parse_url($targetFilePath, PHP_URL_PATH);
+      $targetDir = dirname($targetFile);
+      if (!is_dir($targetDir))
+      {
+          $ok = mkdir($targetDir, 0777, true);
+          if (!$ok) throw new Exception("mkdir({$targetDir}) trying to create an enclosing directory for target file.");
+      }
+      $ok = rename($localFilePath, $targetFile);
+      if (!$ok) throw new Exception("rename({$localFilePath}, {$targetFile}) failed.");
   }
 
   private function _uploadToS3($localFilePath, $targetUrl)
