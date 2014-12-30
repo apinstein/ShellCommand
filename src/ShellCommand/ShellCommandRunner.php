@@ -216,7 +216,8 @@ class ShellCommandRunner
       case '':
       case 'file':
         $targetFile = parse_url($url, PHP_URL_PATH);
-        $return = copy($targetFile, $inputTmpFilePath);
+        $ok = copy($targetFile, $inputTmpFilePath);
+        if ($ok === false) throw new Exception("copy({$targetFile}, {$inputTmpFilePath}) failed.");
         break;
       default:
         throw new Exception("Invalid input scheme '{$scheme}'.");
