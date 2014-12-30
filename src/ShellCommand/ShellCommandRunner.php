@@ -12,6 +12,11 @@ class ShellCommandRunner
   protected $s3Key = NULL;
   protected $s3SecretKey = NULL;
 
+  // URL re-writers allow the runnner to re-map URL schemes
+  // For instance, a local runner may want to re-write s3:// urls as file:// urls for testing/offline development
+  protected $inputUrlRewriter;
+  protected $outputUrlRewriter;
+
   // Capture data to be returned as part of each
   // notification. See output scheme capture://
   protected $capture = array();
@@ -28,6 +33,8 @@ class ShellCommandRunner
    *                     custom: [custom data hash]
    *              - s3Key
    *              - s3SecretKey
+   *              - inputUrlRewriter
+   *              - outputUrlRewriter
    */
   public function __construct(ShellCommand $shellCommand, $options = array())
   {
@@ -35,6 +42,8 @@ class ShellCommandRunner
     $this->notificationRunner = isset($options['notificationRunner']) ? $options['notificationRunner'] : NULL;
     $this->s3Key              = isset($options['s3Key']) ? $options['s3Key'] : NULL;
     $this->s3SecretKey        = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
+    $this->inputUrlRewriter   = isset($options['inputUrlRewriter']) ? $options['inputUrlRewriter'] : NULL;
+    $this->outputUrlRewriter  = isset($options['outputUrlRewriter']) ? $options['outputUrlRewriter'] : NULL;
   }
 
   public static function create(ShellCommand $sc, $options = array())
@@ -202,6 +211,11 @@ class ShellCommandRunner
    */
   public function processInput($url)
   {
+    if (is_callable($this->inputUrlRewriter))
+    {
+        $url = call_user_func($this->inputUrlRewriter, $url);
+    }
+
     $scheme = strtolower(parse_url($url, PHP_URL_SCHEME));
 
     // Generate local (tmp) path to store the downloaded file
@@ -240,9 +254,14 @@ class ShellCommandRunner
    */
   private function processOutput($localFilePath, $targetUrl)
   {
-    if ($targetUrl == '/dev/null') return NULL;
-
     if (!file_exists($localFilePath)) throw new Exception("Could not find file at path '{$localFilePath}' for upload.");
+
+    if (is_callable($this->outputUrlRewriter))
+    {
+        $targetUrl = call_user_func($this->outputUrlRewriter, $targetUrl);
+    }
+
+    if ($targetUrl == '/dev/null') return NULL;
 
     $scheme = strtolower(parse_url($targetUrl, PHP_URL_SCHEME));
     switch ($scheme)

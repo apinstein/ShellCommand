@@ -27,11 +27,22 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $this->assertTrue($nfRan, "Notification callback didn't run.");
   }
 
-  function testHttpInputSceme()
+  function testHttpInputScheme()
   {
     $scr = ShellCommandRunner::create(ShellCommand::create());
     $tempFile = $scr->processInput("http://www.cnn.com");
     $this->assertTrue(file_exists($tempFile));
+  }
+
+  function testInputUrlRewriting()
+  {
+      $sampleFilePath = 'file://' . __DIR__ . '/sample.txt';
+      $scr = ShellCommandRunner::create(ShellCommand::create(), array(
+          'inputUrlRewriter' => function($input) use ($sampleFilePath) {
+              return $sampleFilePath;
+          }));
+    $tempFile = $scr->processInput("http://www.cnn.com");
+    $this->assertEquals(file_get_contents($sampleFilePath), file_get_contents($tempFile));
   }
 
   function testHttpInputThrowsExcepton()
@@ -76,6 +87,24 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $response = ShellCommandRunner::create($sc)->run();
     $extensionOnTempFile = pathinfo(trim($response['capture'][$fileName]), PATHINFO_EXTENSION);
     $this->assertEquals($expectedExtension, $extensionOnTempFile, "Input tempfile extension didn't match input URL.");
+  }
+
+  function testOutputUrlRewriting()
+  {
+    $expectedSampleOutput = 'sampleoutput';
+
+    $sc = ShellCommand::create()
+      ->addCommand("echo -n '{$expectedSampleOutput}' > %%outputs.myOutput%%")
+      ->addOutput('myOutput', "capture://myOutput")
+      ;
+
+    $overrideOutputToLocal = 'file://' . tempnam(sys_get_temp_dir(), 'ShellCommandRunnerTest_');
+    $scr = ShellCommandRunner::create($sc, array(
+      'outputUrlRewriter' => function($input) use ($overrideOutputToLocal) {
+        return $overrideOutputToLocal;
+      }));
+    $scr->run();
+    $this->assertEquals($expectedSampleOutput, file_get_contents($overrideOutputToLocal));
   }
 
   /**
