@@ -317,7 +317,7 @@ class ShellCommandRunner
     $response = $s3->create_object($bucket, $path, $headers);
     if (!$response->isOK())
     {
-      throw new Exception("Upload to S3 {$targetUrl} failed: " . print_r($response->body, true));
+      throw new Exception("Upload to S3 {$targetUrl} failed: " . print_r($response->body, true) . PHP_EOL . print_r($response->header, true));
     }
   }
 
