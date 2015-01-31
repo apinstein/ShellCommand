@@ -142,7 +142,8 @@ class ShellCommandRunner
     $this->outputTempFiles = array();
     foreach ($this->shellCommand->getOutputs() as $key => $url)
     {
-      $ext = pathinfo($url, PATHINFO_EXTENSION);
+      $urlPath = parse_url($url, PHP_URL_PATH);
+      $ext = pathinfo($urlPath, PATHINFO_EXTENSION);
       $outputTmpPath = $this->generateTempfile('output-', $ext);
       $this->outputTempFiles[$key] = $outputTmpPath;
     }
@@ -233,6 +234,7 @@ class ShellCommandRunner
     switch ($scheme)
     {
       case 'http':
+      case 'https':
         $this->_downloadHTTP($url, $inputTmpFilePath);
         break;
       case '':
@@ -278,6 +280,7 @@ class ShellCommandRunner
         $this->_uploadToS3($localFilePath, $targetUrl);
         break;
       case 'http':
+      case 'https':
         $this->_uploadHTTP($localFilePath, $targetUrl);
         break;
       case 'capture':
@@ -371,6 +374,7 @@ class ShellCommandRunner
   private function _uploadHTTP($localFilePath, $targetUrl)
   {
     $fp = fopen($localFilePath, 'r');
+    if ($fp === false) throw new Exception("Couldn't open file {$localFilePath}");
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL,            $targetUrl);
