@@ -59,6 +59,7 @@ class ShellCommandRunner
   public function run()
   {
     $status = self::STATUS_FAILURE;
+    $exception = NULL;
     $error = "DID NOT EXECUTE PROPERLY";
 
     try {
@@ -71,6 +72,7 @@ class ShellCommandRunner
       $error = NULL;
     } catch (Exception $e) {
       $status = self::STATUS_FAILURE;
+      $exception = $e;
       $error = $e->getMessage();
     }
 
@@ -80,6 +82,7 @@ class ShellCommandRunner
     $resultData = array(
       'status'     => $status,
       'error'      => ($status === self::STATUS_FAILURE ? $error : NULL),
+      'exception'  => ($status === self::STATUS_FAILURE ? $exception : NULL),
       'capture'    => $this->capture,
       'customData' => $this->shellCommand->getCustomData()
     );
