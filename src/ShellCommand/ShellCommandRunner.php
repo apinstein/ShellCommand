@@ -1,4 +1,9 @@
 <?php
+
+use Aws\S3\S3Client;
+use Aws\Common\Exception\MultipartUploadException;
+use Aws\S3\Model\MultipartUpload\UploadBuilder;
+
 class ShellCommandRunner
 {
   const STATUS_SUCCESS = 'success';
@@ -307,17 +312,22 @@ class ShellCommandRunner
 
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
-    $headers  = array(
-      'fileUpload' => $localFilePath,
-      'headers'    => array(),
-    );
 
     // Upload!
-    $s3       = new AmazonS3($creds);
-    $response = $s3->create_object($bucket, $path, $headers);
-    if (!$response->isOK())
-    {
-      throw new Exception("Upload to S3 {$targetUrl} failed: " . print_r($response->body, true) . PHP_EOL . print_r($response->header, true));
+    $s3 = S3Client::factory($creds);
+    $uploader = UploadBuilder::newInstance()
+      ->setClient($s3)
+      ->setSource($localFilePath)
+      ->setBucket($bucket)
+      ->setKey($path)
+      ->build()
+      ;
+
+    try {
+      $uploader->upload();
+    } catch (MultipartUploadException $e) {
+      $uploader->abort();
+      throw $e;
     }
   }
 
