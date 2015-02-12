@@ -307,10 +307,77 @@ class ShellCommandRunner
       if (!$ok) throw new Exception("rename({$localFilePath}, {$targetFile}) failed.");
   }
 
+  private function _s3UrlIsPreSigned($url)
+  {
+    $queryParamsStr = parse_url($url, PHP_URL_QUERY);
+    if (!$queryParamsStr)
+    {
+      return false;
+    }
+
+    $queryParams = array();
+    parse_str($queryParamsStr, $queryParams);
+    return (isset($queryParams['AWSAccessKeyId'], $queryParams['Expires'], $queryParams['Signature']));
+  }
+
+  // these HTTP headers affect the signature
+  // is this the canonical list? https://github.com/aws/aws-sdk-php/blob/master/src/Aws/S3/Model/PostObject.php#L54-L93
+  // or is it this? https://forums.aws.amazon.com/message.jspa?messageID=244858
+  // or is it this? http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
+  private static $s3SignatureHeaders = array(
+    // HTTP Header       S3 API PutObject Option Name
+    'Content-Type'    => 'ContentType',
+    'Cache-Control'   => 'CacheControl',
+    /** ??? **/
+  );
+  private function _s3UrlHttpHeadersNeededForSignature($url)
+  {
+    $uploadHttpHeaders = array();
+
+    $queryParamsStr = parse_url($url, PHP_URL_QUERY);
+    if ($queryParamsStr)
+    {
+      $queryParams = array();
+      parse_str($queryParamsStr, $queryParams);
+      foreach (self::$s3SignatureHeaders as $header => $na) {
+        if (isset($queryParams[$header]))
+        {
+          $uploadHttpHeaders[$header] = $queryParams[$header];
+        }
+      }
+    }
+
+    return $uploadHttpHeaders;
+  }
+
+  public static function generateS3PreSignedOutput($s3ServiceV2, $bucket, $key, $headers = array())
+  {
+    $commandOptions = array(
+      'Bucket'      => $bucket,
+      'Key'         => $key,
+      'Body'        => '', // PutObject requires it
+    );
+
+    foreach ($headers as $header => $value) {
+      if (isset(self::$s3SignatureHeaders[$header]))
+      {
+        $commandOption = self::$s3SignatureHeaders[$header];
+        $commandOptions[$commandOption] = $value;
+      }
+    }
+
+    $command = $s3ServiceV2->getCommand('PutObject', $commandOptions);
+
+    $preSignedUploadUrl = $command->createPresignedUrl('+60 minutes');
+    foreach ($headers as $header => $value) {
+      $preSignedUploadUrl .= "&{$header}=" . urlencode($value);
+    }
+    $preSignedUploadUrl = str_replace('https://', 's3://', $preSignedUploadUrl);
+    return $preSignedUploadUrl;
+  }
+
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
-
     // Gather info
     $urlParts = parse_url($targetUrl);
     if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
@@ -319,21 +386,31 @@ class ShellCommandRunner
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
 
-    // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
+    // is this a pre-signed S3 url?
+    if ($this->_s3UrlIsPreSigned($targetUrl))
+    {
+      $s3HttpPostUrl = str_replace('s3://', 'https://', $targetUrl);
+      $this->_uploadHTTP($localFilePath, $s3HttpPostUrl, $this->_s3UrlHttpHeadersNeededForSignature($targetUrl));
+    }
+    else
+    {
+      // Upload using S3 SDK
+      $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
+      $s3 = S3Client::factory($creds);
+      $uploader = UploadBuilder::newInstance()
+        ->setClient($s3)
+        ->setSource($localFilePath)
+        ->setBucket($bucket)
+        ->setKey($path)
+        ->build()
+        ;
 
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $uploader->abort();
-      throw $e;
+      try {
+        $uploader->upload();
+      } catch (MultipartUploadException $e) {
+        $uploader->abort();
+        throw $e;
+      }
     }
   }
 
@@ -371,7 +448,7 @@ class ShellCommandRunner
 
   }
 
-  private function _uploadHTTP($localFilePath, $targetUrl)
+  private function _uploadHTTP($localFilePath, $targetUrl, $httpHeaders = array())
   {
     $fp = fopen($localFilePath, 'r');
     if ($fp === false) throw new Exception("Couldn't open file {$localFilePath}");
@@ -382,6 +459,24 @@ class ShellCommandRunner
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_INFILE,         $fp);
     curl_setopt($ch, CURLOPT_INFILESIZE,     filesize($localFilePath));
+
+    // http headers
+    $curlStyleHttpHeaders = array();
+    foreach ($httpHeaders as $name => $value) {
+      $curlStyleHttpHeaders[] = "{$name}: {$value}";
+    }
+    if (!empty($curlStyleHttpHeaders))
+    {
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $curlStyleHttpHeaders);
+    }
+
+//    if (0)
+//    {
+//      curl_setopt($ch, CURLOPT_VERBOSE, true);
+//      $verboseLogF = fopen('/tmp/curl.log', 'w+');
+//      curl_setopt($ch, CURLOPT_STDERR, $verboseLogF);
+//    }
+
     $body       = curl_exec($ch);
     $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError  = curl_errno($ch);
