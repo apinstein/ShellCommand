@@ -316,21 +316,39 @@ class ShellCommandRunner
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
 
-    // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
+    if (filesize($localFilePath) < 25000000)  // use v1.x AWS/SDK for <25MB images (failures happen dis-proportionally on large uploads)
+    {
+      $headers  = array(
+        'fileUpload' => $localFilePath,
+        'headers'    => array(),
+      );
 
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $uploader->abort();
-      throw $e;
+      // Upload!
+      $s3       = new AmazonS3($creds);
+      $response = $s3->create_object($bucket, $path, $headers);
+      if (!$response->isOK())
+      {
+        throw new Exception("Upload to S3 {$targetUrl} failed: " . print_r($response->body, true) . PHP_EOL . print_r($response->header, true));
+      }
+    }
+    else
+    {
+      // Upload!
+      $s3 = S3Client::factory($creds);
+      $uploader = UploadBuilder::newInstance()
+        ->setClient($s3)
+        ->setSource($localFilePath)
+        ->setBucket($bucket)
+        ->setKey($path)
+        ->build()
+        ;
+
+      try {
+        $uploader->upload();
+      } catch (MultipartUploadException $e) {
+        $uploader->abort();
+        throw $e;
+      }
     }
   }
 
