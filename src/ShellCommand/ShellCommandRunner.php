@@ -316,7 +316,7 @@ class ShellCommandRunner
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
 
-    if (filesize($localFilePath) < 15000000)  // use v1.x AWS/SDK for <15MB images (failures happen dis-proportionally on large uploads)
+    if (filesize($localFilePath) < 5000000)  // use v1.x AWS/SDK for <5MB images (failures happen dis-proportionally on large uploads)
     {
       $headers  = array(
         'fileUpload' => $localFilePath,
