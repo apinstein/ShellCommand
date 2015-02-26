@@ -353,6 +353,29 @@ class ShellCommandRunner
     return $uploadHttpHeaders;
   }
 
+  private function _stripS3UrlHttpHeadersNeededForSignature($url)
+  {
+    $urlParts = parse_url($url);
+
+    $queryParamsStr = $urlParts['query'];
+    if ($queryParamsStr)
+    {
+      $queryParams = array();
+      parse_str($queryParamsStr, $queryParams);
+
+      foreach (self::$s3SignatureHeaders as $header => $na) {
+        if (isset($queryParams[$header]))
+        {
+          unset($queryParams[$header]);
+        }
+      }
+
+      $urlParts['query'] = http_build_query($queryParams);
+    }
+
+    return http_build_url($urlParts);
+  }
+
   public static function generateS3PreSignedOutput($s3ServiceV2, $bucket, $key, $headers = array())
   {
     $commandOptions = array(
@@ -392,8 +415,9 @@ class ShellCommandRunner
     // is this a pre-signed S3 url?
     if ($this->_s3UrlIsPreSigned($targetUrl))
     {
-      $s3HttpPostUrl = str_replace('s3://', 'https://', $targetUrl);
-      $this->_uploadHTTP($localFilePath, $s3HttpPostUrl, $this->_s3UrlHttpHeadersNeededForSignature($targetUrl));
+      $headersForSignature = $this->_s3UrlHttpHeadersNeededForSignature($targetUrl);
+      $s3HttpPostUrl = str_replace('s3://', 'https://', $this->_stripS3UrlHttpHeadersNeededForSignature($targetUrl));
+      $this->_uploadHTTP($localFilePath, $s3HttpPostUrl, $headersForSignature);
     }
     else
     {
