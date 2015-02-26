@@ -317,7 +317,10 @@ class ShellCommandRunner
 
     $queryParams = array();
     parse_str($queryParamsStr, $queryParams);
-    return (isset($queryParams['AWSAccessKeyId'], $queryParams['Expires'], $queryParams['Signature']));
+    return 
+         isset($queryParams['AWSAccessKeyId'],   $queryParams['Expires'],       $queryParams['Signature'])
+      or isset($queryParams['X-Amz-Credential'], $queryParams['X-Amz-Expires'], $queryParams['X-Amz-Signature'])
+      ;
   }
 
   // these HTTP headers affect the signature
