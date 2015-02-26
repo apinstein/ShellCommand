@@ -373,7 +373,14 @@ class ShellCommandRunner
       $urlParts['query'] = http_build_query($queryParams);
     }
 
-    return http_build_url($urlParts);
+    return join('', array(
+      $urlParts['scheme'],
+      '://',
+      $urlParts['host'],
+      $urlParts['port'] ? ":{$urlParts['port']}" : NULL,
+      $urlParts['path'],
+      $urlParts['query'] ? "?{$urlParts['query']}" : NULL
+    ));
   }
 
   public static function generateS3PreSignedOutput($s3ServiceV2, $bucket, $key, $headers = array())
