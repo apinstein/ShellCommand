@@ -328,8 +328,9 @@ class ShellCommandRunner
   // or is it this? https://forums.aws.amazon.com/message.jspa?messageID=244858
   // or is it this? http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
   private static $s3SignatureHeaders = array(
-    // HTTP Header       S3 API PutObject Option Name
+    // HTTP Header       S3 API PutObject Option Name (used by generateS3PreSignedOutput). maybe split out this concern later.
     'Content-Type'    => 'ContentType',
+    'acl'             => 'acl',
     'Cache-Control'   => 'CacheControl',
     /** ??? **/
   );
