@@ -458,6 +458,7 @@ class ShellCommandRunner
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL,            $targetUrl);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST,  'PUT');
     curl_setopt($ch, CURLOPT_UPLOAD,         1);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_INFILE,         $fp);
