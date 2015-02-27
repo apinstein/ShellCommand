@@ -332,8 +332,8 @@ class ShellCommandRunner
     // generic headers
     'Content-Type'    => 'ContentType',
     'Cache-Control'   => 'CacheControl',
-    // x-amz headers
-    'x-amz-acl'       => 'x-amz-acl',
+    // x-amz headers: the AWS SDK's add these in the URL
+    //'x-amz-acl'       => 'x-amz-acl',
     /** ??? **/
   );
   private function _s3UrlHttpHeadersNeededForSignature($url)
