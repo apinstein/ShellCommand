@@ -329,9 +329,11 @@ class ShellCommandRunner
   // or is it this? http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
   private static $s3SignatureHeaders = array(
     // HTTP Header       S3 API PutObject Option Name (used by generateS3PreSignedOutput). maybe split out this concern later.
+    // generic headers
     'Content-Type'    => 'ContentType',
-    'acl'             => 'acl',
     'Cache-Control'   => 'CacheControl',
+    // x-amz headers
+    'x-amz-acl'       => 'x-amz-acl',
     /** ??? **/
   );
   private function _s3UrlHttpHeadersNeededForSignature($url)
