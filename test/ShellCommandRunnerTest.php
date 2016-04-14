@@ -30,7 +30,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
   function testHttpInputScheme()
   {
     $scr = ShellCommandRunner::create(ShellCommand::create());
-    $tempFile = $scr->processInput("http://www.cnn.com");
+    $tempFile = $scr->processInput("http://edition.cnn.com");
     $this->assertTrue(file_exists($tempFile));
   }
 
@@ -41,7 +41,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
           'inputUrlRewriter' => function($input) use ($sampleFilePath) {
               return $sampleFilePath;
           }));
-    $tempFile = $scr->processInput("http://www.cnn.com");
+    $tempFile = $scr->processInput("http://edition.cnn.com");
     $this->assertEquals(file_get_contents($sampleFilePath), file_get_contents($tempFile));
   }
 
