@@ -1,8 +1,6 @@
 <?php
 
 use Aws\S3\S3Client;
-use Aws\Common\Exception\MultipartUploadException;
-use Aws\S3\Model\MultipartUpload\UploadBuilder;
 
 class ShellCommandRunner
 {
@@ -14,8 +12,8 @@ class ShellCommandRunner
   protected $outputTempFiles    = array();
 
   protected $notificationRunner = NULL;
-  protected $s3Key = NULL;
-  protected $s3SecretKey = NULL;
+  protected $s3Key              = NULL;
+  protected $s3SecretKey        = NULL;
 
   // URL re-writers allow the runnner to re-map URL schemes
   // For instance, a local runner may want to re-write s3:// urls as file:// urls for testing/offline development
@@ -308,32 +306,37 @@ class ShellCommandRunner
 
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
-
     // Gather info
     $urlParts = parse_url($targetUrl);
     if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
     if (!isset($urlParts['path'])) throw new Exception("No path could be parsed from {$targetUrl}.");
 
-    $bucket   = $urlParts['host'];
-    $path     = preg_replace('/^\//', '', $urlParts['path']);
+    $bucket = $urlParts['host'];
+    $path   = preg_replace('/^\//', '', $urlParts['path']);
+
+    // get the s3 region.
+    $customData = $this->shellCommand->getCustomData();
+    if (isset($customData['s3Region'])) {
+      $s3Region = $customData['s3Region'];
+    } else {
+      throw new Exception("An s3Region is required. Please add this to the command's customData.");
+    }
 
     // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
+    $options = [
+      'credentials' => [
+        'key'    => $this->s3Key,
+        'secret' => $this->s3SecretKey,
+      ],
+      'region'  => $s3Region,
+      'version' => '2006-03-01', // found in vendor/aws/aws-sdk-php/src/data/s3
+    ];
 
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $uploader->abort();
-      throw $e;
-    }
+    S3Client::factory($options)->putObject([
+      'Bucket'     => $bucket,
+      'Key'        => $path,
+      'SourceFile' => $localFilePath,
+    ]);
   }
 
   private function _downloadHTTP($sourceUrl, $localFilePath)
