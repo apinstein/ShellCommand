@@ -233,6 +233,7 @@ class ShellCommandRunner
     switch ($scheme)
     {
       case 'http':
+      case 'https':
         $this->_downloadHTTP($url, $inputTmpFilePath);
         break;
       case '':
@@ -278,6 +279,7 @@ class ShellCommandRunner
         $this->_uploadToS3($localFilePath, $targetUrl);
         break;
       case 'http':
+      case 'https':
         $this->_uploadHTTP($localFilePath, $targetUrl);
         break;
       case 'capture':
