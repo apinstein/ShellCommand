@@ -1,9 +1,5 @@
 <?php
 
-use Aws\S3\S3Client;
-use Aws\Common\Exception\MultipartUploadException;
-use Aws\S3\Model\MultipartUpload\UploadBuilder;
-
 class ShellCommandRunner
 {
   const STATUS_SUCCESS = 'success';
@@ -14,8 +10,9 @@ class ShellCommandRunner
   protected $outputTempFiles    = array();
 
   protected $notificationRunner = NULL;
-  protected $s3Key = NULL;
-  protected $s3SecretKey = NULL;
+  protected $s3Key              = NULL;
+  protected $s3SecretKey        = NULL;
+  protected $s3Uploader         = NULL;
 
   // URL re-writers allow the runnner to re-map URL schemes
   // For instance, a local runner may want to re-write s3:// urls as file:// urls for testing/offline development
@@ -41,19 +38,21 @@ class ShellCommandRunner
    *              - inputUrlRewriter
    *              - outputUrlRewriter
    */
-  public function __construct(ShellCommand $shellCommand, $options = array())
+  public function __construct(ShellCommand $shellCommand, $options = array(), S3UploaderInterface $s3Uploader = NULL)
   {
-    $this->shellCommand       = $shellCommand;
-    $this->notificationRunner = isset($options['notificationRunner']) ? $options['notificationRunner'] : NULL;
-    $this->s3Key              = isset($options['s3Key']) ? $options['s3Key'] : NULL;
-    $this->s3SecretKey        = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
-    $this->inputUrlRewriter   = isset($options['inputUrlRewriter']) ? $options['inputUrlRewriter'] : NULL;
-    $this->outputUrlRewriter  = isset($options['outputUrlRewriter']) ? $options['outputUrlRewriter'] : NULL;
+    $this->shellCommand        = $shellCommand;
+    $this->s3Key               = isset($options['s3Key']) ? $options['s3Key'] : NULL;
+    $this->s3SecretKey         = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
+    $this->notificationRunner  = isset($options['notificationRunner']) ? $options['notificationRunner'] : NULL;
+    $this->inputUrlRewriter    = isset($options['inputUrlRewriter']) ? $options['inputUrlRewriter'] : NULL;
+    $this->outputUrlRewriter   = isset($options['outputUrlRewriter']) ? $options['outputUrlRewriter'] : NULL;
+    // We use S3UploaderForAwsSdkV1 as the default for BC.
+    $this->s3Uploader          = $s3Uploader ?: new S3UploaderForAwsSdkV1();
   }
 
-  public static function create(ShellCommand $sc, $options = array())
+  public static function create(ShellCommand $sc, $options = array(), S3UploaderInterface $s3Uploader = NULL)
   {
-    return new ShellCommandRunner($sc, $options);
+    return new ShellCommandRunner($sc, $options, $s3Uploader);
   }
 
   public function run()
@@ -233,6 +232,7 @@ class ShellCommandRunner
     switch ($scheme)
     {
       case 'http':
+      case 'https':
         $this->_downloadHTTP($url, $inputTmpFilePath);
         break;
       case '':
@@ -278,6 +278,7 @@ class ShellCommandRunner
         $this->_uploadToS3($localFilePath, $targetUrl);
         break;
       case 'http':
+      case 'https':
         $this->_uploadHTTP($localFilePath, $targetUrl);
         break;
       case 'capture':
@@ -306,32 +307,21 @@ class ShellCommandRunner
 
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
-
     // Gather info
     $urlParts = parse_url($targetUrl);
     if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
     if (!isset($urlParts['path'])) throw new Exception("No path could be parsed from {$targetUrl}.");
 
-    $bucket   = $urlParts['host'];
-    $path     = preg_replace('/^\//', '', $urlParts['path']);
+    $bucket     = $urlParts['host'];
+    $targetPath = preg_replace('/^\//', '', $urlParts['path']);
 
     // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
-
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $uploader->abort();
-      throw $e;
-    }
+    $this->s3Uploader
+        ->setCredentials($this->s3Key, $this->s3SecretKey)
+        // Region is hardcoded since Tourbuzz only uses this one for S3.
+        ->setRegion('us-east-1')
+        ->putObject($localFilePath, $bucket, $targetPath)
+    ;
   }
 
   private function _downloadHTTP($sourceUrl, $localFilePath)

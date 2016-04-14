@@ -30,7 +30,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
   function testHttpInputScheme()
   {
     $scr = ShellCommandRunner::create(ShellCommand::create());
-    $tempFile = $scr->processInput("http://www.cnn.com");
+    $tempFile = $scr->processInput("http://edition.cnn.com");
     $this->assertTrue(file_exists($tempFile));
   }
 
@@ -41,7 +41,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
           'inputUrlRewriter' => function($input) use ($sampleFilePath) {
               return $sampleFilePath;
           }));
-    $tempFile = $scr->processInput("http://www.cnn.com");
+    $tempFile = $scr->processInput("http://edition.cnn.com");
     $this->assertEquals(file_get_contents($sampleFilePath), file_get_contents($tempFile));
   }
 
@@ -131,5 +131,77 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
       array('jpg'),
       array('tiff'),
     );
+  }
+
+  /**
+   * @testdox ShellCommandRunner is able to upload assets to S3.
+   */
+  public function testS3UploaderIntegration()
+  {
+      $s3Key       = 'publicKey';
+      $s3SecretKey = 'secretKey';
+      $bucket      = 'some.bucket.tourbuzz.net';
+      $targetPath  = 'some/path/echo.txt';
+
+      $shellCommand = ShellCommand::create()
+          ->setCustomData('foo')
+          ->addCommand("echo 'HI' > %%outputs.echo%%")
+          ->addOutput("echo", "s3://{$bucket}/{$targetPath}")
+      ;
+
+      $s3Uploader = $this->getMock('S3UploaderInterface');
+
+      // setCredentials() method
+      $s3Uploader
+          // Expected to be called only once.
+          ->expects($this->once())
+          ->method('setCredentials')
+          // Expects setCredentials method to be invoked exactly with the s3Key and s3SecretKey
+          ->with(
+              $this->equalTo($s3Key),
+              $this->equalTo($s3SecretKey)
+          )
+          // This method is 'fluid', and should return a reference to the object it belongs to (aka 'return $this;')
+          ->will($this->returnValue($s3Uploader))
+      ;
+
+      // setRegion() method
+      $s3Uploader
+          // Expected to be called only once.
+          ->expects($this->once())
+          ->method('setRegion')
+          // Expects setRegion method to be invoked with a non null value.
+          ->with(
+              $this->logicalNot($this->equalTo(null))
+          )
+          // This method is 'fluid', and should return a reference to the object it belongs to (aka 'return $this;')
+          ->will($this->returnValue($s3Uploader))
+      ;
+
+      // putObject() method
+      $s3Uploader
+          // Expected to be called only once.
+          ->expects($this->once())
+          ->method('putObject')
+          // Expects putObject method to be invoked exactly with sourceFilePath, bucket and targetPath
+          ->with(
+            // Since the generated local file path is non-deterministic, we can only assert that
+            // at least is not null
+            $this->logicalNot($this->equalTo(null)),
+            $this->equalTo($bucket),
+            $this->equalTo($targetPath)
+          )
+      ;
+
+      $options = [
+          's3Key'       => $s3Key,
+          's3SecretKey' => $s3SecretKey,
+      ];
+
+      ShellCommandRunner::create(
+          $shellCommand,
+          $options,
+          $s3Uploader
+      )->run();
   }
 }
