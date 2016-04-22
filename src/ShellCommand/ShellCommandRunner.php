@@ -314,21 +314,13 @@ class ShellCommandRunner
     $bucket = $urlParts['host'];
     $path   = preg_replace('/^\//', '', $urlParts['path']);
 
-    // get the s3 region.
-    $customData = $this->shellCommand->getCustomData();
-    if (isset($customData['s3Region'])) {
-      $s3Region = $customData['s3Region'];
-    } else {
-      throw new Exception("An s3Region is required. Please add this to the command's customData.");
-    }
-
     // Upload!
     $options = [
       'credentials' => [
         'key'    => $this->s3Key,
         'secret' => $this->s3SecretKey,
       ],
-      'region'  => $s3Region,
+      'region'  => 'us-east-1', // hardcoded since Tourbuzz only uses this regions for S3 atm.
       'version' => '2006-03-01', // found in vendor/aws/aws-sdk-php/src/data/s3
     ];
 
