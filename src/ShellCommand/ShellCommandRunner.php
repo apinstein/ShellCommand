@@ -316,13 +316,17 @@ class ShellCommandRunner
 
     // Upload!
     $options = [
-      'credentials' => [
-        'key'    => $this->s3Key,
-        'secret' => $this->s3SecretKey,
-      ],
       'region'  => 'us-east-1', // hardcoded since Tourbuzz only uses this regions for S3 atm.
       'version' => '2006-03-01', // found in vendor/aws/aws-sdk-php/src/data/s3
     ];
+
+    // Reference the credentials only* they are passed down. Otherwise S3Client will error.
+    if ($this->s3Key && $this->s3SecretKey) {
+      $options['credentials'] = [
+        'key'    => $this->s3Key,
+        'secret' => $this->s3SecretKey,
+      ];
+    }
 
     S3Client::factory($options)->putObject([
       'Bucket'     => $bucket,
