@@ -94,7 +94,7 @@ class ShellCommandRunnerTest extends PHPUnit_Framework_TestCase
     $expectedSampleOutput = 'sampleoutput';
 
     $sc = ShellCommand::create()
-      ->addCommand("echo -n '{$expectedSampleOutput}' > %%outputs.myOutput%%")
+      ->addCommand("env echo -n '{$expectedSampleOutput}' > %%outputs.myOutput%%")
       ->addOutput('myOutput', "capture://myOutput")
       ;
 
