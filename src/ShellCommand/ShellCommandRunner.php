@@ -40,6 +40,7 @@ class ShellCommandRunner
    *              - s3SecretKey
    *              - inputUrlRewriter
    *              - outputUrlRewriter
+   *              - tempDir
    */
   public function __construct(ShellCommand $shellCommand, $options = array())
   {
@@ -49,6 +50,12 @@ class ShellCommandRunner
     $this->s3SecretKey        = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
     $this->inputUrlRewriter   = isset($options['inputUrlRewriter']) ? $options['inputUrlRewriter'] : NULL;
     $this->outputUrlRewriter  = isset($options['outputUrlRewriter']) ? $options['outputUrlRewriter'] : NULL;
+    $this->tempDir            = isset($options['tempDir']) ? $options['tempDir'] : NULL;
+
+    if (!$this->tempDir)
+    {
+      $this->tempDir = sys_get_temp_dir() . "/ShellCommandRunner";
+    }
   }
 
   public static function create(ShellCommand $sc, $options = array())
@@ -421,12 +428,11 @@ class ShellCommandRunner
 
   private function _getTempPath()
   {
-    $tmpDir = sys_get_temp_dir() . "/ShellCommandRunner";
-    if (!is_dir($tmpDir))
+    if (!is_dir($this->tempDir))
     {
-      mkdir($tmpDir, 0755, true);
+      mkdir($this->tempDir, 0755, true);
     }
-    return $tmpDir;
+    return $this->tempDir;
   }
 
   /**
