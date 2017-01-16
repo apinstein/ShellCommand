@@ -1,8 +1,6 @@
 <?php
 
 use Aws\S3\S3Client;
-use Aws\Common\Exception\MultipartUploadException;
-use Aws\S3\Model\MultipartUpload\UploadBuilder;
 
 class ShellCommandRunner
 {
@@ -14,8 +12,8 @@ class ShellCommandRunner
   protected $outputTempFiles    = array();
 
   protected $notificationRunner = NULL;
-  protected $s3Key = NULL;
-  protected $s3SecretKey = NULL;
+  protected $s3Key              = NULL;
+  protected $s3SecretKey        = NULL;
 
   // URL re-writers allow the runnner to re-map URL schemes
   // For instance, a local runner may want to re-write s3:// urls as file:// urls for testing/offline development
@@ -233,6 +231,7 @@ class ShellCommandRunner
     switch ($scheme)
     {
       case 'http':
+      case 'https':
         $this->_downloadHTTP($url, $inputTmpFilePath);
         break;
       case '':
@@ -278,6 +277,7 @@ class ShellCommandRunner
         $this->_uploadToS3($localFilePath, $targetUrl);
         break;
       case 'http':
+      case 'https':
         $this->_uploadHTTP($localFilePath, $targetUrl);
         break;
       case 'capture':
@@ -306,32 +306,33 @@ class ShellCommandRunner
 
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
-
     // Gather info
     $urlParts = parse_url($targetUrl);
     if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
     if (!isset($urlParts['path'])) throw new Exception("No path could be parsed from {$targetUrl}.");
 
-    $bucket   = $urlParts['host'];
-    $path     = preg_replace('/^\//', '', $urlParts['path']);
+    $bucket = $urlParts['host'];
+    $path   = preg_replace('/^\//', '', $urlParts['path']);
 
     // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
+    $options = [
+      'region'  => 'us-east-1', // hardcoded since Tourbuzz only uses this regions for S3 atm.
+      'version' => '2006-03-01', // found in vendor/aws/aws-sdk-php/src/data/s3
+    ];
 
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $uploader->abort();
-      throw $e;
+    // Reference the credentials only* they are passed down. Otherwise S3Client will error.
+    if ($this->s3Key && $this->s3SecretKey) {
+      $options['credentials'] = [
+        'key'    => $this->s3Key,
+        'secret' => $this->s3SecretKey,
+      ];
     }
+
+    S3Client::factory($options)->putObject([
+      'Bucket'     => $bucket,
+      'Key'        => $path,
+      'SourceFile' => $localFilePath,
+    ]);
   }
 
   private function _downloadHTTP($sourceUrl, $localFilePath)
