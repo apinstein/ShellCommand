@@ -48,6 +48,7 @@ class ShellCommandRunner
     $this->notificationRunner = isset($options['notificationRunner']) ? $options['notificationRunner'] : NULL;
     $this->s3Key              = isset($options['s3Key']) ? $options['s3Key'] : NULL;
     $this->s3SecretKey        = isset($options['s3SecretKey']) ? $options['s3SecretKey'] : NULL;
+    $this->s3Region           = isset($options['s3Region']) ? $options['s3Region'] : NULL;
     $this->inputUrlRewriter   = isset($options['inputUrlRewriter']) ? $options['inputUrlRewriter'] : NULL;
     $this->outputUrlRewriter  = isset($options['outputUrlRewriter']) ? $options['outputUrlRewriter'] : NULL;
   }
@@ -316,7 +317,9 @@ class ShellCommandRunner
     $path     = preg_replace('/^\//', '', $urlParts['path']);
 
     $s3 = new S3Client([
-      'credentials' => new Credentials($this->s3Key, $this->s3SecretKey)
+      'credentials' => new Credentials($this->s3Key, $this->s3SecretKey),
+      'region' => $this->s3Region,
+      'version' => '2006-03-01'
     ]);
 
     $uploader = new MultipartUploader($s3, $localFilePath, [
