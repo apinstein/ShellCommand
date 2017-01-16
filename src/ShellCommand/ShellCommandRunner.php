@@ -1,8 +1,9 @@
 <?php
 
+use Aws\Credentials\Credentials;
+use Aws\Exception\MultipartUploadException;
+use Aws\S3\MultipartUploader;
 use Aws\S3\S3Client;
-use Aws\Common\Exception\MultipartUploadException;
-use Aws\S3\Model\MultipartUpload\UploadBuilder;
 
 class ShellCommandRunner
 {
@@ -306,8 +307,6 @@ class ShellCommandRunner
 
   private function _uploadToS3($localFilePath, $targetUrl)
   {
-    $creds = array('key' => $this->s3Key, 'secret' => $this->s3SecretKey);
-
     // Gather info
     $urlParts = parse_url($targetUrl);
     if (!isset($urlParts['host'])) throw new Exception("No host could be parsed from {$targetUrl}.");
@@ -316,20 +315,20 @@ class ShellCommandRunner
     $bucket   = $urlParts['host'];
     $path     = preg_replace('/^\//', '', $urlParts['path']);
 
-    // Upload!
-    $s3 = S3Client::factory($creds);
-    $uploader = UploadBuilder::newInstance()
-      ->setClient($s3)
-      ->setSource($localFilePath)
-      ->setBucket($bucket)
-      ->setKey($path)
-      ->build()
-      ;
+    $s3 = new S3Client([
+      'credentials' => new Credentials($this->s3Key, $this->s3SecretKey)
+    ]);
+
+    $uploader = new MultipartUploader($s3, $localFilePath, [
+      'bucket' => $bucket,
+      'key' => $path
+    ]);
 
     try {
       $uploader->upload();
     } catch (MultipartUploadException $e) {
-      $uploader->abort();
+      $s3->abortMultipartUpload($e->getState()->getId());
+
       throw $e;
     }
   }
