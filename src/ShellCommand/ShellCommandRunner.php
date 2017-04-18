@@ -327,13 +327,15 @@ class ShellCommandRunner
       'key' => $path
     ]);
 
-    try {
-      $uploader->upload();
-    } catch (MultipartUploadException $e) {
-      $s3->abortMultipartUpload($e->getState()->getId());
-
-      throw $e;
-    }
+    do {
+      try {
+        $result = $uploader->upload();
+      } catch (MultipartUploadException $e) {
+        $uploader = new MultipartUploader($s3, $localFilePath, [
+          'state' => $e->getState(),
+        ]);
+      }
+    } while (!isset($result));
   }
 
   private function _downloadHTTP($sourceUrl, $localFilePath)
